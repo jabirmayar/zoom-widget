@@ -23,7 +23,7 @@ You only need to create an instance of the Zoom class in the child of your Scaff
 
 ### Reader-like capability
 
-The '''axis''' property has been added to allow to embed the Zoom widget into a PageView. This widget supports to move in the same axis as the PageView to avoid the scrolling while the Zoom widget has not reached the edge. If the Zoom widget is not embedded in a PageView, this property can be ignored.
+The ```axis``` property has been added to allow to embed the Zoom widget into a PageView. This widget supports to move in the same axis as the PageView to avoid the scrolling while the Zoom widget has not reached the edge. If the Zoom widget is not embedded in a PageView, this property can be ignored.
 
 ### Import
 
