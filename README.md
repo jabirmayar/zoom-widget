@@ -12,7 +12,7 @@ Add to pubspec.yaml:
 
 ```yaml
 dependencies:
-zoom_widget: ^0.1.3
+mno_zoom_widget: ^0.1.0
 ```
 
 
@@ -21,10 +21,14 @@ zoom_widget: ^0.1.3
 
 You only need to create an instance of the Zoom class in the child of your Scaffold or within the widget of your choice, within the child attribute, put the widget that you want to zoom in and the width and height of the canvas where it will be made zoom.
 
+### Reader-like capability
+
+The '''axis''' property has been added to allow to embed the Zoom widget into a PageView. This widget supports to move in the same axis as the PageView to avoid the scrolling while the Zoom widget has not reached the edge. If the Zoom widget is not embedded in a PageView, this property can be ignored.
+
 ### Import
 
 ```dart
-import 'package:zoom_widget/zoom_widget.dart';
+import 'package:mno_zoom_widget/zoom_widget.dart';
 ```
 
 ### Simple example
@@ -90,6 +94,7 @@ Customizing the properties you can get amazing results.
 - enableScroll **bool**.
 - zoomSensibility  **double**.
 - doubleTapZoom **bool**.
+- axis **Axis**.
 
 ### Customized properties example
 
@@ -108,6 +113,7 @@ Zoom(
     doubleTapZoom: true,
     zoomSensibility: 2.3,
     initZoom: 0.0,
+    axis: Axis.horizontal,
     onTap: (){ 
         print("Widget clicked");
     }

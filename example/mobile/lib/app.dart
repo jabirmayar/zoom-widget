@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:zoom_widget/zoom_widget.dart';
+import 'package:mno_zoom_widget/zoom_widget.dart';
 
 class MyApp extends StatelessWidget {
   @override

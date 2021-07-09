@@ -2,7 +2,9 @@ library zoom_widget;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:zoom_widget/MultiTouchGestureRecognizer.dart';
+import 'package:mno_zoom_widget/MultiTouchGestureRecognizer.dart';
+import 'package:mno_zoom_widget/zoom_gesture_detector.dart';
+import 'package:mno_zoom_widget/zoom_hit_corners.dart';
 
 class Zoom extends StatefulWidget {
   final double maxZoomWidth, maxZoomHeight;
@@ -22,6 +24,7 @@ class Zoom extends StatefulWidget {
   final bool doubleTapZoom;
   final BoxShadow? canvasShadow;
   final void Function()? onTap;
+  final Axis axis;
 
   Zoom({
     Key? key,
@@ -44,6 +47,7 @@ class Zoom extends StatefulWidget {
     this.doubleTapZoom = true,
     this.canvasShadow,
     this.onTap,
+    this.axis = Axis.horizontal,
   })  : assert(
           maxZoomWidth != null || width != null,
           'maxZoomWidth or width must not be null',
@@ -59,7 +63,8 @@ class Zoom extends StatefulWidget {
   _ZoomState createState() => _ZoomState();
 }
 
-class _ZoomState extends State<Zoom> with TickerProviderStateMixin {
+class _ZoomState extends State<Zoom>
+    with TickerProviderStateMixin, ZoomHitCornersDetector {
   double localTop = 0.0;
   double changeTop = 0.0;
   double auxTop = 0.0;
@@ -83,6 +88,23 @@ class _ZoomState extends State<Zoom> with TickerProviderStateMixin {
   late bool doubleTapDown;
   double doubleTapScale = 0.0;
   late BoxConstraints globalConstraints;
+
+  @override
+  Offset get position => Offset(
+      -1 * (auxLeft + localLeft + centerLeft + scaleLeft),
+      -1 * (auxTop + localTop + centerTop + scaleTop));
+
+  @override
+  double get childWidth => widget.maxZoomWidth * scale;
+
+  @override
+  double get childHeight => widget.maxZoomHeight * scale;
+
+  @override
+  double get screenWidth => globalConstraints.maxWidth;
+
+  @override
+  double get screenHeight => globalConstraints.maxHeight;
 
   @override
   void initState() {
@@ -325,6 +347,107 @@ class _ZoomState extends State<Zoom> with TickerProviderStateMixin {
 
         return RawGestureDetector(
           gestures: {
+            ZoomGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<ZoomGestureRecognizer>(
+              () => ZoomGestureRecognizer(this, this, widget.axis),
+              (ZoomGestureRecognizer instance) {
+                instance
+                  ..onStart = (details) {
+                    downTouchLeft = details.focalPoint.dx * (1 / scale);
+                    downTouchTop = details.focalPoint.dy * (1 / scale);
+
+                    changeScale = 1.0;
+                    scaleLeft = 0;
+                    changeTop = details.focalPoint.dy;
+                    changeLeft = details.focalPoint.dx;
+                  }
+                  ..onUpdate = (details) {
+                    double up = details.focalPoint.dy - changeTop;
+                    double down = (changeTop - details.focalPoint.dy) * -1;
+                    double left = details.focalPoint.dx - changeLeft;
+                    double right = (changeLeft - details.focalPoint.dx) * -1;
+
+                    setState(() {
+                      if (details.scale != 1.0) {
+                        if (details.scale > changeScale) {
+                          double preScale = scale +
+                              (details.scale - changeScale) /
+                                  widget.zoomSensibility;
+                          if (preScale < 1.0) {
+                            scale = preScale;
+                          }
+                        } else if (changeScale > details.scale &&
+                            (widget.maxZoomWidth * scale >
+                                    constraints.maxWidth ||
+                                widget.maxZoomHeight * scale >
+                                    constraints.maxHeight)) {
+                          double preScale = scale -
+                              (changeScale - details.scale) /
+                                  widget.zoomSensibility;
+
+                          if (portrait) {
+                            if (preScale >
+                                (constraints.maxWidth / widget.maxZoomWidth)) {
+                              scale = preScale;
+                            }
+                          } else {
+                            if (preScale >
+                                (constraints.maxHeight /
+                                    widget.maxZoomHeight)) {
+                              scale = preScale;
+                            }
+                          }
+                        }
+
+                        scaleProcess(constraints);
+                        scaleFixPosition(constraints);
+
+                        if (widget.onScaleUpdate != null) {
+                          widget.onScaleUpdate!(scale, zoom);
+                        }
+
+                        changeScale = details.scale;
+                      } else {
+                        if (details.focalPoint.dy > changeTop &&
+                            (auxTop + up) < 0 &&
+                            (auxTop + up) >
+                                -((widget.maxZoomHeight) * scale -
+                                    constraints.maxHeight)) {
+                          localTop = up;
+                        } else if (changeTop > details.focalPoint.dy &&
+                            (auxTop + down) < 0 &&
+                            (auxTop + down) >
+                                -((widget.maxZoomHeight) * scale -
+                                    constraints.maxHeight)) {
+                          localTop = down;
+                        }
+                        if (details.focalPoint.dx > changeLeft &&
+                            (auxLeft + right) < 0 &&
+                            (auxLeft + right) >
+                                -((widget.maxZoomWidth * scale) -
+                                    constraints.maxWidth)) {
+                          localLeft = right;
+                        } else if (changeLeft > details.focalPoint.dx &&
+                            (auxLeft + left) < 0 &&
+                            (auxLeft + left) >
+                                -((widget.maxZoomWidth * scale) -
+                                    constraints.maxWidth)) {
+                          localLeft = left;
+                        }
+                      }
+                    });
+
+                    if (widget.onPositionUpdate != null) {
+                      widget.onPositionUpdate!(Offset(
+                          (auxLeft + localLeft + centerLeft + scaleLeft) * -1,
+                          (auxTop + localTop + centerTop + scaleTop) * -1));
+                    }
+                  }
+                  ..onEnd = (details) {
+                    endEscale(constraints);
+                  };
+              },
+            ),
             MultiTouchGestureRecognizer: GestureRecognizerFactoryWithHandlers<
                 MultiTouchGestureRecognizer>(
               () => MultiTouchGestureRecognizer(),
@@ -367,96 +490,6 @@ class _ZoomState extends State<Zoom> with TickerProviderStateMixin {
                 }
                 scaleAnimation.forward(from: 0.0);
               }
-            },
-            onScaleStart: (details) {
-              downTouchLeft = details.focalPoint.dx * (1 / scale);
-              downTouchTop = details.focalPoint.dy * (1 / scale);
-
-              changeScale = 1.0;
-              scaleLeft = 0;
-              changeTop = details.focalPoint.dy;
-              changeLeft = details.focalPoint.dx;
-            },
-            onScaleUpdate: (details) {
-              double up = details.focalPoint.dy - changeTop;
-              double down = (changeTop - details.focalPoint.dy) * -1;
-              double left = details.focalPoint.dx - changeLeft;
-              double right = (changeLeft - details.focalPoint.dx) * -1;
-
-              setState(() {
-                if (details.scale != 1.0) {
-                  if (details.scale > changeScale) {
-                    double preScale = scale +
-                        (details.scale - changeScale) / widget.zoomSensibility;
-                    if (preScale < 1.0) {
-                      scale = preScale;
-                    }
-                  } else if (changeScale > details.scale &&
-                      (widget.maxZoomWidth * scale > constraints.maxWidth ||
-                          widget.maxZoomHeight * scale >
-                              constraints.maxHeight)) {
-                    double preScale = scale -
-                        (changeScale - details.scale) / widget.zoomSensibility;
-
-                    if (portrait) {
-                      if (preScale >
-                          (constraints.maxWidth / widget.maxZoomWidth)) {
-                        scale = preScale;
-                      }
-                    } else {
-                      if (preScale >
-                          (constraints.maxHeight / widget.maxZoomHeight)) {
-                        scale = preScale;
-                      }
-                    }
-                  }
-
-                  scaleProcess(constraints);
-                  scaleFixPosition(constraints);
-
-                  if (widget.onScaleUpdate != null) {
-                    widget.onScaleUpdate!(scale, zoom);
-                  }
-
-                  changeScale = details.scale;
-                } else {
-                  if (details.focalPoint.dy > changeTop &&
-                      (auxTop + up) < 0 &&
-                      (auxTop + up) >
-                          -((widget.maxZoomHeight) * scale -
-                              constraints.maxHeight)) {
-                    localTop = up;
-                  } else if (changeTop > details.focalPoint.dy &&
-                      (auxTop + down) < 0 &&
-                      (auxTop + down) >
-                          -((widget.maxZoomHeight) * scale -
-                              constraints.maxHeight)) {
-                    localTop = down;
-                  }
-                  if (details.focalPoint.dx > changeLeft &&
-                      (auxLeft + right) < 0 &&
-                      (auxLeft + right) >
-                          -((widget.maxZoomWidth * scale) -
-                              constraints.maxWidth)) {
-                    localLeft = right;
-                  } else if (changeLeft > details.focalPoint.dx &&
-                      (auxLeft + left) < 0 &&
-                      (auxLeft + left) >
-                          -((widget.maxZoomWidth * scale) -
-                              constraints.maxWidth)) {
-                    localLeft = left;
-                  }
-                }
-              });
-
-              if (widget.onPositionUpdate != null) {
-                widget.onPositionUpdate!(Offset(
-                    (auxLeft + localLeft + centerLeft + scaleLeft) * -1,
-                    (auxTop + localTop + centerTop + scaleTop) * -1));
-              }
-            },
-            onScaleEnd: (details) {
-              endEscale(constraints);
             },
             child: Container(
               width: constraints.maxWidth,

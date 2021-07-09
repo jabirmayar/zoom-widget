@@ -1,8 +1,8 @@
-name: zoom_widget
-description: Widget to zoom on a canvas of modifiable size that a child widget can hold.
-version: 0.2.1
-author: Adrian Alvarez Galicia <semakers@gmail.com>
-homepage: https://github.com/semakers
+name: mno_zoom_widget
+description: Widget to zoom on a canvas of modifiable size that a child widget can hold. Also can be embedded in a PageView and detect which widget should have priority (PageView or Zoom)
+version: 0.1.0
+author: Yonathan Teitelbaum <yteitel@mantano.com>
+homepage: https://github.com/Mantano/zoom-widget
 
 environment:
   sdk: ">=2.12.0 <3.0.0"
