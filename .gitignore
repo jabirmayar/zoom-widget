@@ -1,4 +1,4 @@
-pubspec.lock
+example/**/pubspec.lock
 
 # Miscellaneous
 *.class
